@@ -35,10 +35,10 @@ Saved structures are saved to the generated directory in the world save.
 
 
 ## Authors
-Daan Wöltgens
-Kilian van Berlo - S150750 - k.v.berlo@student.tue.nl
-Mathijs Boezer 
-Tobin van den Hurk
-Tom Verberk
+- Daan Wöltgens
+- Kilian van Berlo - S150750 - k.v.berlo@student.tue.nl
+- Mathijs Boezer 
+- Tobin van den Hurk
+- Tom Verberk
 
 Project Link: https://github.com/KilianBerlo/Space-Invaders-2
