@@ -1,0 +1,82 @@
+#version 400 core
+
+in vec3 position;
+in vec2 textureCoords;
+in vec3 normal;
+in vec3 tangent;
+in vec2 materialAttrib;
+
+out vec2 pass_textureCoords;
+out vec3 surfaceNormal;
+out vec2 pass_materialAttrib;
+out vec3 toLightVector[4];
+out vec3 toSunVector;
+out vec3 toCameraVector;
+out float visibility;
+out vec4 shadowCoords[4];
+out float shadowDist;
+
+uniform mat4 transformationMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform vec3 lightPosition[4];
+uniform mat4 toShadowMapSpace[4];
+uniform float shadowMapDistances[4];
+uniform vec3 sunLight;
+
+const float density = 0.003;
+const float gradient = 1.0;
+
+const float transitionDistance = 5.0;
+
+void main(void){
+	mat4 modelViewMatrix = viewMatrix * transformationMatrix;
+	
+	vec4 worldPosition = transformationMatrix * vec4(position, 1.0);
+	vec4 positionRelativeToCam = modelViewMatrix * vec4(position, 1.0);
+	vec3 actualNormal = normal;
+	surfaceNormal = (modelViewMatrix * vec4(actualNormal, 0.0)).xyz; // make sure it transforms too
+	
+	vec3 norm = normalize(surfaceNormal);
+	vec3 tang = normalize((viewMatrix *(transformationMatrix * vec4(tangent, 0.0))).xyz);
+	vec3 bitang = normalize(cross(norm, tang));
+	
+	mat3 toTangentSpace = mat3(
+		tang.x, bitang.x, norm.x,
+		tang.y, bitang.y, norm.y,
+		tang.z, bitang.z, norm.z
+	);
+	
+	
+	for(int i = 0; i < 4; i++) {
+		toLightVector[i] = toTangentSpace * (lightPosition[i] - positionRelativeToCam.xyz);
+	}
+	toSunVector = toTangentSpace * (sunLight - positionRelativeToCam.xyz);
+	
+	toCameraVector = toTangentSpace * (-positionRelativeToCam.xyz);
+	
+	//fog
+	float distance = length(positionRelativeToCam.xyz);
+	shadowDist = distance; // used later
+	visibility = exp(-pow((distance * density), gradient));
+	visibility = clamp(visibility, 0.0, 1.0);
+	
+	gl_Position = projectionMatrix * positionRelativeToCam;
+	pass_textureCoords = textureCoords;
+	pass_materialAttrib = materialAttrib;
+	
+	int samplerIndex = 3;
+	if(shadowDist < shadowMapDistances[2]) samplerIndex = 2;
+	if(shadowDist < shadowMapDistances[1]) samplerIndex = 1;
+	if(shadowDist < shadowMapDistances[0]) samplerIndex = 0;
+	
+	shadowCoords[samplerIndex] = toShadowMapSpace[samplerIndex] * worldPosition;
+	
+	if(samplerIndex - 1 >= 0) shadowCoords[samplerIndex - 1] = toShadowMapSpace[samplerIndex - 1] * worldPosition;
+	if(samplerIndex + 1 <= 3) shadowCoords[samplerIndex + 1] = toShadowMapSpace[samplerIndex + 1] * worldPosition;
+	
+	// use w to store if there should be any shadow at all
+	distance = distance - (shadowMapDistances[3] - transitionDistance);
+	distance = distance / transitionDistance;
+	shadowCoords[3].w = clamp(1.0 - distance, 0.0, 1.0);
+}
